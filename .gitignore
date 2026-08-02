@@ -1,0 +1,13 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Secrets / local config
+*.key
+api_keys.txt
+
+# OS
+.DS_Store
+Thumbs.db
