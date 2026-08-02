@@ -37,8 +37,12 @@ def process_one_job(job_id: str):
             row = cur.fetchone()
     language, code = row[0], row[1]
 
+    # Geo-analysis jobs legitimately run for minutes; give them headroom.
+    # Untrusted quick snippets stay on a short leash.
+    job_timeout = 600 if language == "python-geo" else 30
+
     # Build the request and run it through the hardened Docker executor
-    req = ExecuteRequest(language=language, code=code, timeout_seconds=10)
+    req = ExecuteRequest(language=language, code=code, timeout_seconds=job_timeout)
 
     metrics.active_jobs.inc()          # one more job running
     try:
@@ -75,9 +79,13 @@ def main():
     print("[worker] Started. Waiting for jobs... (Ctrl+C to stop)")
 
     while not _shutdown:
-        job_id = store.dequeue_job(timeout=5)
+        try:
+            job_id = store.dequeue_job(timeout=5)
+        except Exception as e:
+            print(f"[worker] Redis error, retrying: {e}")
+            time.sleep(1)
+            continue
         if job_id is None:
-            # No job within timeout — loop again (lets us check _shutdown)
             continue
         try:
             process_one_job(job_id)

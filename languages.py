@@ -18,6 +18,10 @@ LANGUAGES = {
         # node -e "<code>" runs the code string directly
         "cmd": lambda code: ["node", "-e", code],
     },
+    "python-geo": {
+        "image": "codeforge/python-geo:latest",
+        "cmd": lambda code: ["python3", "-c", code],
+    },
 }
 
 

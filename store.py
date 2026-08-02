@@ -9,7 +9,13 @@ from config import (
 )
 
 # --- Redis (the queue) ---
-_redis = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+_redis = redis.Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    decode_responses=True,
+    socket_timeout=None,          # no socket-level read timeout
+    socket_keepalive=True,
+)
 
 
 def enqueue_job(job_id: str):

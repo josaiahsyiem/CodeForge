@@ -42,22 +42,41 @@ def execute_code_docker(req: ExecuteRequest) -> ExecuteResponse:
     try:
         # 1. Create the container (but don't start it yet)
         lang_config = languages.get_config(req.language)
+
+        # Geo workloads need network (data fetching) and more memory/disk.
+        # Everything else stays fully locked down (no network).
+        if req.language == "python-geo":
+            net_mode = "bridge"       # allow network for data fetching
+            mem = "1g"                # geo libs are memory-hungry
+            tmp_size = "256m"         # room for downloaded/written files
+            # Shared data volume so multi-stage pipelines can pass files
+            volumes = {r"E:\GOAI\PHASE2\data": {"bind": "/data", "mode": "rw"}}
+            read_only_root = False    # geo code writes to /data
+        else:
+            net_mode = "none"         # full lockdown for untrusted code
+            mem = "256m"
+            tmp_size = "32m"
+            volumes = None
+            read_only_root = True     # untrusted code: read-only everything
+
         container = _client.containers.create(
             image=lang_config["image"],
             command=lang_config["cmd"](req.code),
             working_dir="/tmp",
-            stdin_open=True,   # keep stdin open
+            stdin_open=True,
             tty=False,
             # --- Phase 3: resource limits ---
-            mem_limit="256m",          # max 256 MB RAM
-            memswap_limit="256m",      # disable swap (swap = mem_limit means no extra swap)
-            nano_cpus=1_000_000_000,   # max 1 CPU core (1e9 nano-cpus = 1 core)
-            pids_limit=64,             # max 64 processes (kills fork bombs)
-            # --- Phase 4: security hardening ---
-            network_mode="none",             # no network at all
-            read_only=True,                  # root filesystem is read-only
-            tmpfs={"/tmp": "size=32m"},  # writable scratch space at /tmp only
-            cap_drop=["ALL"],                # drop all Linux capabilities
+            mem_limit=mem,
+            memswap_limit=mem,
+            nano_cpus=1_000_000_000,
+            pids_limit=64,
+            # --- Phase 4: security hardening (profile depends on language) ---
+            network_mode=net_mode,
+            dns=["8.8.8.8", "1.1.1.1"] if req.language == "python-geo" else None,
+            read_only=read_only_root,
+            volumes=volumes,
+            tmpfs={"/tmp": f"size={tmp_size}"},
+            cap_drop=["ALL"],
             security_opt=["no-new-privileges"],
         )
 

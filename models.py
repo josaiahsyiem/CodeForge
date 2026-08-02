@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 class ExecuteRequest(BaseModel):
     language: str = Field(..., description="Programming language, e.g. 'python'")
     code: str = Field(..., description="Source code to execute")
-    timeout_seconds: int = Field(default=10, ge=1, le=60, description="Max wall-clock seconds")
+    timeout_seconds: int = Field(default=10, ge=1, le=600, description="Max wall-clock seconds")
 
 
 class ExecuteResponse(BaseModel):
